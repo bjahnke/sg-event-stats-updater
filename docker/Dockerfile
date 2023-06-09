@@ -1,6 +1,7 @@
-# Use the official Python 3.9 image as the base
-FROM python:3.9
+# Use the official Python 3.11 image as the base
+FROM python:3.11
 
+# Expose port 8080 for google cloud run compatibility
 EXPOSE 8080
 
 # Set the working directory to /app
@@ -11,13 +12,15 @@ RUN apt-get update && apt-get install -y libpq-dev
 
 # Copy the rest of the application code to the working directory
 COPY requirements.txt ./
+
 # Install the dependencies
 RUN pip install -r requirements.txt
 
-COPY ./ ./
+# Copy the rest of the application code to the working directory
+COPY . /app
 
-ENV PYTHONPATH /sg-event-stats-updater
+# Add the application's directory to the PYTHONPATH
+ENV PYTHONPATH "${PYTHONPATH}:/app"
 
-ENTRYPOINT [ "python3" ]
 # Set the command to run when the container starts
-CMD [ "src/fetch_data/main.py" ]
+CMD [ "python3", "src/fetch_data/main.py" ]

@@ -5,8 +5,9 @@ import requests
 from bs4 import BeautifulSoup
 
 SgRespType = typing.Dict[str, typing.Dict[str, typing.List[typing.Dict]]]
-class Scalpyr(object):
 
+
+class Scalpyr(object):
     def __init__(self, dev_key=None):
         self.base_url = "http://api.seatgeek.com/2/"
         self.dev_key = dev_key
@@ -50,9 +51,9 @@ class Scalpyr(object):
         for an event endpoint. Then put the ticket info
         into an array of dict objects.
         """
-        ticket_urls = map(lambda x: x['url'], response['events'])
-        event_titles = map(lambda x: x['title'], response['events'])
-        dates = map(lambda x: x['datetime_utc'], response['events'])
+        ticket_urls = map(lambda x: x["url"], response["events"])
+        event_titles = map(lambda x: x["title"], response["events"])
+        dates = map(lambda x: x["datetime_utc"], response["events"])
         tickets = []
         for index in range(len(ticket_urls)):
             event_dict = dict()
@@ -68,9 +69,9 @@ class Scalpyr(object):
         for a performer. Then put the ticket info into array of dict
         objects.
         """
-        ticket_urls = map(lambda x: x['url'], response['performers'])
-        performer_name = map(lambda x: x['name'], response['performers'])
-        dates = map(lambda x: x['datetime_utc'], response['performers'])
+        ticket_urls = map(lambda x: x["url"], response["performers"])
+        performer_name = map(lambda x: x["name"], response["performers"])
+        dates = map(lambda x: x["datetime_utc"], response["performers"])
         tickets = []
         for index in range(len(ticket_urls)):
             perf_dict = {}
@@ -91,7 +92,9 @@ class Scalpyr(object):
         objects.
         """
         tickets = []
-        links, dates, names = self._get_ticket_button_urls(response['url'], is_venue=True)
+        links, dates, names = self._get_ticket_button_urls(
+            response["url"], is_venue=True
+        )
         for index in range(len(names)):
             venue_item = dict()
             venue_item["name"] = names[index]
@@ -103,7 +106,9 @@ class Scalpyr(object):
     def _return_ticket_urls(self, sg_url):
         r = requests.get(sg_url)
         soup = BeautifulSoup(r.text)
-        external_tickets = [a['href'] for a in soup.findAll('a', attrs={'class': 'select btn'})]
+        external_tickets = [
+            a["href"] for a in soup.findAll("a", attrs={"class": "select btn"})
+        ]
         return external_tickets
 
     def _get_ticket_button_urls(self, response, is_venue=False):
@@ -112,7 +117,10 @@ class Scalpyr(object):
         """
         soup = BeautifulSoup(response)
         sg_base = "http://www.seatgeek.com"
-        links = [sg_base + a['href'] for a in soup.findAll('a', attrs={'class': 'ticket-button'})]
+        links = [
+            sg_base + a["href"]
+            for a in soup.findAll("a", attrs={"class": "ticket-button"})
+        ]
         if is_venue:
             """
             When querying a venue page you must disambiguate since it consists
@@ -121,13 +129,15 @@ class Scalpyr(object):
             since a JSON response for a venue doesn't contain specific
             event or ticketing info.
             """
-            dates = [div.text for div in soup.findAll('div', attrs={'class': 'time'})]
-            names = [span.txt for span in soup.findAll('span', attrs={'span': 'itemprop'})]
+            dates = [div.text for div in soup.findAll("div", attrs={"class": "time"})]
+            names = [
+                span.txt for span in soup.findAll("span", attrs={"span": "itemprop"})
+            ]
             return links, dates, names
         return links
 
     def _send_request(self, req_type=None, req_args=None, req_id=None):
-        """ Send a request to the SeatGeek API using requests """
+        """Send a request to the SeatGeek API using requests"""
         request_string = self.base_url + "{0}/".format(req_type)
         if req_id:
             request_string += f"{req_id}"
