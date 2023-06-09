@@ -4,4 +4,5 @@ requests
 pandas
 sqlalchemy
 mysql-connector-python
+flask
 git+https://github.com/bjahnke/utility-invoke-tasks.git

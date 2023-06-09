@@ -1,6 +1,6 @@
 import pathlib
 from src.util_invoke_tasks import *
-
+import env
 
 @task
 def buildenvpy(c):
@@ -15,19 +15,27 @@ def buildenvpy(c):
     :param c:
     :return:
     """
-    with open(".env", "r") as f:
+    with open('.env', 'r') as f:
         lines = f.readlines()
-    pathlib.Path("env").mkdir(parents=True, exist_ok=True)
-    with open("env/env_auto.py", "w") as f:
-        f.write("import os\n")
-        f.write("from dotenv import load_dotenv\n")
-        f.write("load_dotenv()\n")
-        f.write("\n")
+    pathlib.Path('env').mkdir(parents=True, exist_ok=True)
+    with open('env/env_auto.py', 'w') as f:
+        f.write(
+            '"""\n'
+            'Desc:\n'
+            'env_auto.py is generated from .env by the `invoke buildenvpy` task.\n'
+            'it\'s purpose is to provide IDE support for environment variables.\n'
+            '"""\n'
+            '\n'
+            'import os\n'
+            'from dotenv import load_dotenv\n'
+            'load_dotenv()\n\n'
+            '\n'
+        )
         for line in lines:
-            if line != "\n" and not line.startswith("#"):
-                variable = line.split("=")[0]
-                f.write(f"{variable} = os.environ.get('{variable}')\n")
-    print("env/env_auto.py built from .env")
+            if line != '\n' and not line.startswith('#'):
+                variable = line.split('=')[0]
+                f.write(f'{variable} = os.environ.get(\'{variable}\')\n')
+    print('env/env_auto.py built from .env')
 
 
 @task
