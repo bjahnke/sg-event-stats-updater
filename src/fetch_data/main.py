@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from src.scalpyr import Scalpyr
 from src.fetch_data.table_builders import SeatgeekData
 import env
-from flask import Flask, request
+from flask import Flask
 
 app = Flask(__name__)
 
