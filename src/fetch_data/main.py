@@ -13,7 +13,7 @@ def handle_request():
     seatgeek_data = SeatgeekData.from_api(client)
     engine = create_engine(env.PLANETSCALE_URL, echo=True)
     seatgeek_data.push_to_db(engine)
-    # optionally return something here
+    return 'Updated database'
 
 
 if __name__ == '__main__':
