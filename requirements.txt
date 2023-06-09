@@ -1,0 +1,9 @@
+ticketpy
+python-dotenv
+beautifulsoup4
+requests
+pandas
+kaggle
+sqlalchemy
+mysql-connector-python
+git+https://github.com/bjahnke/utility-invoke-tasks.git
