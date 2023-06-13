@@ -1,8 +1,8 @@
 from sqlalchemy import create_engine
-from src.scalpyr import Scalpyr
+from src.scalpyr import ScalpyrPro
 from src.fetch_data.table_builders import SeatgeekData
 import env
-from flask import Flask, request
+from flask import Flask
 import pydantic
 
 
@@ -17,7 +17,7 @@ app = Flask(__name__)
 
 @app.route('/', methods=['POST'])
 def handle_request():
-    client = Scalpyr(env.SEATGEEK_CLIENT_ID)
+    client = ScalpyrPro(env.SEATGEEK_CLIENT_ID)
     seatgeek_data = SeatgeekData.from_api(client)
     engine = create_engine(env.PLANETSCALE_URL, echo=True)
     seatgeek_data.push_to_db(engine)
