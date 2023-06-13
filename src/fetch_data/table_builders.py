@@ -1,4 +1,7 @@
+import typing
 from datetime import datetime
+
+import numpy as np
 import pandas as pd
 from src.scalpyr import Scalpyr, ScalpyrPro
 
@@ -159,7 +162,7 @@ class SeatgeekData:
         self.performers_df = performers_df
         self.stats_df = build_stats_df(events)
         self.events["venue_id"] = get_event_venue_ids(self.events)
-        self.performer_events_df = build_performer_events_df(events)
+        self.performer_events_venue = build_performer_events_df(events)
 
     @classmethod
     def from_api(cls, client: ScalpyrPro):
@@ -173,25 +176,53 @@ class SeatgeekData:
         performers = client.get_performers(
             {'type': 'band', 'per_page': 100, 'has_upcoming_events': 'true'}
         )
+        events = client.get_events_by_performers(performers)
+        return cls(events, performers)
 
-        events = client.get_events({
-            'performers.id': ','.join(performers.id.astype(str)),
-            'per_page': performers.num_upcoming_events.sum(),
-            'type': 'concert'
-        })
+    @classmethod
+    def from_db(cls, engine, client: ScalpyrPro):
+        """
+        Returns a SeatgeekData object from a database
+        :param client:
+        :param engine:
+        :return:
+        """
+        print(f"getting events from database {datetime.now()}")
+        performer_event_venue = pd.read_sql_table("performer_event_venue", engine)
+        # get performers from api by unique performer_id in performer_event_venue table
+        performer_ids = performer_event_venue.performer_id.astype(str).unique()
+        performers = client.get_performers(
+            {
+                'id': ','.join(performer_ids),
+                'per_page': len(performer_ids),
+            }
+        )
+        event_ids = performer_event_venue.event_id.astype(str).unique()
+        # split event ids into ten lists
+        event_ids = np.array_split(event_ids, 5)
+        events_list = []
+
+        for i in event_ids:
+            evnts = client.get_events(
+                {
+                    'id': ','.join(i),
+                }
+            )
+            events_list.append(evnts)
+        events = pd.concat(events_list)
         return cls(events, performers)
 
     def get_performer_events(self, performer_name: str) -> pd.Series:
         return get_performer_events(
-            performer_name, self.performers_df, self.performer_events_df
+            performer_name, self.performers_df, self.performer_events_venue
         )
 
     def get_performer_stats(self, performer_name: str) -> pd.DataFrame:
-        return get_performer_stats_df(performer_name, self.performers_df, self.events, self.performer_events_df)
+        return get_performer_stats_df(performer_name, self.performers_df, self.events, self.performer_events_venue)
 
     def get_performer_events_df(self, performer_name: str) -> pd.DataFrame:
         return get_performer_events_df(
-            performer_name, self.performers_df, self.events, self.performer_events_df
+            performer_name, self.performers_df, self.events, self.performer_events_venue
         )
 
     # function that pushes all tables to a database using sqlalchemy via pandas
@@ -204,16 +235,18 @@ class SeatgeekData:
         self.stats_df.to_sql("stat", engine, if_exists="append", index=False)
 
         try:
-            stored_event_ids = pd.read_sql(
-                f"SELECT event_id FROM performer_event_venue", engine
-            )["event_id"].tolist()
+            stored_performer_event_venue = pd.read_sql_table("performer_event_venue", engine)
         except Exception as e:
-            stored_event_ids = []
-        # select rows in performer_events_df where event_id is not in db list of event_ids
-        new_performer_events_df = self.performer_events_df.loc[
-            ~self.performer_events_df["event_id"].isin(stored_event_ids)
-        ]
-        # then push the result to the db
-        new_performer_events_df.to_sql(
-            "performer_event_venue", engine, if_exists="append", index=False
-        )
+            # then push the result to the db
+            self.performer_events_venue.to_sql(
+                "performer_event_venue", engine, if_exists="replace", index=False
+            )
+        else:
+            # select rows in performer_events_df where event_id is not in db list of event_ids
+            new_performer_events_df = pd.concat(
+                [stored_performer_event_venue, self.performer_events_venue]
+            ).drop_duplicates()
+            # then push the result to the db
+            new_performer_events_df.to_sql(
+                "performer_event_venue", engine, if_exists="append", index=False
+            )

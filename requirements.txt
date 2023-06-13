@@ -6,4 +6,5 @@ sqlalchemy
 mysql-connector-python
 flask
 pydantic
+numpy
 git+https://github.com/bjahnke/utility-invoke-tasks.git

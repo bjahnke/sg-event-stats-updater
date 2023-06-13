@@ -49,3 +49,15 @@ class ScalpyrPro(Scalpyr):
         except KeyError:
             raise ApiException(response)
         return df
+
+    def get_events_by_performers(self, performers: pd.DataFrame) -> pd.DataFrame:
+        """
+        Returns a dataframe of events for a given list of performer ids
+        :param performers:
+        :return:
+        """
+        return self.get_events({
+            'performers.id': ','.join(performers.id.astype(str)),
+            'per_page': performers.num_upcoming_events.sum(),
+            'type': 'concert'
+        })
