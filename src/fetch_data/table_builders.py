@@ -1,6 +1,6 @@
 from datetime import datetime
 import pandas as pd
-from src.scalpyr import Scalpyr
+from src.scalpyr import Scalpyr, ScalpyrPro
 
 
 def get_performer_events(
@@ -79,6 +79,7 @@ def build_stats_df(events_df: pd.DataFrame) -> pd.DataFrame:
     ]
     # add utc timestamp as column to stats_df, without seconds
     stats_df["utc_read_time"] = pd.to_datetime("now").round("min")
+    stats_df = stats_df.dropna()
     return stats_df
 
 
@@ -89,7 +90,9 @@ def build_performer_events_df(events: pd.DataFrame) -> pd.DataFrame:
     :return:
     """
     # map performers to event id and explode
-    performers_events = events[["id", "venue_id", "performers"]].explode("performers")
+    performers_events = events[
+        ["id", "venue_id", "performers", 'datetime_utc', 'announce_date', 'visible_at']
+    ].explode("performers")
     # rename id to event_id
     performers_events = performers_events.rename(columns={"id": "event_id"})
     # extract id from performers, mapping event ids to performer ids
@@ -149,81 +152,34 @@ class SeatgeekData:
     """
 
     def __init__(
-        self, events: pd.DataFrame, performers_df: pd.DataFrame, venue_df: pd.DataFrame
+        self, events: pd.DataFrame, performers_df: pd.DataFrame
     ):
         print(f"building seatgeek data {datetime.now()}")
         self.events = events
         self.performers_df = performers_df
-        self.venue_df = venue_df
         self.stats_df = build_stats_df(events)
         self.events["venue_id"] = get_event_venue_ids(self.events)
         self.performer_events_df = build_performer_events_df(events)
 
-        # from events, drop columns: performers, links, datetime_tbd, time_tbd, stats, taxonomies, date_tbd,
-        # description, event_promotion, announcements, conditional, enddatetime_utc, is_visible_override,
-        # tdc_pvo_id, tdc_pv_id, themes, domain_information
-        self.events = self.events.drop(
-            columns=[
-                "performers",
-                "links",
-                "datetime_tbd",
-                "time_tbd",
-                "stats",
-                "taxonomies",
-                "date_tbd",
-                "description",
-                "event_promotion",
-                "announcements",
-                "conditional",
-                "enddatetime_utc",
-                "is_visible_override",
-                "tdc_pvo_id",
-                "tdc_pv_id",
-                "themes",
-                "domain_information",
-                "venue",
-            ]
-        )
-        # from performers, drop columns: image, images, divisions, links, primary, stats, taxonomies, image_attribution,
-        # colors, location, image_rights_message, themes, domain_information
-        self.performers_df = self.performers_df.drop(
-            columns=[
-                "image",
-                "images",
-                "divisions",
-                "links",
-                "primary",
-                "stats",
-                "taxonomies",
-                "image_attribution",
-                "colors",
-                "location",
-                "image_rights_message",
-                "themes",
-                "domain_information",
-            ]
-        )
-
     @classmethod
-    def from_api(cls, client: Scalpyr):
+    def from_api(cls, client: ScalpyrPro):
         """
         Returns a SeatgeekData object from the Seatgeek API
+        :param request_args:
         :param client:
         :return:
         """
         print(f"getting events from seatgeek {datetime.now()}")
-        events = pd.DataFrame.from_dict(
-            client.get_events(
-                {"per_page": "1000", "type": "concert", "sort": "score.desc"}
-            )["events"]
+        performers = client.get_performers(
+            {'type': 'band', 'per_page': 100, 'has_upcoming_events': 'true'}
         )
-        performers_df = pd.DataFrame.from_dict(
-            client.get_performers({"per_page": "1000", "type": "band"})["performers"]
-        )
-        venue_df = pd.DataFrame.from_dict(
-            client.get_venues({"per_page": "1000"})["venues"]
-        )
-        return cls(events, performers_df, venue_df)
+
+        events = client.get_events({
+            'performers.id': ','.join(performers.id.astype(str)),
+            'per_page': performers.num_upcoming_events.sum(),
+            'type': 'concert'
+        })
+        return cls(events, performers)
 
     def get_performer_events(self, performer_name: str) -> pd.Series:
         return get_performer_events(
@@ -231,7 +187,7 @@ class SeatgeekData:
         )
 
     def get_performer_stats(self, performer_name: str) -> pd.DataFrame:
-        return get_performer_stats_df(performer_name, self.performers_df, self.events)
+        return get_performer_stats_df(performer_name, self.performers_df, self.events, self.performer_events_df)
 
     def get_performer_events_df(self, performer_name: str) -> pd.DataFrame:
         return get_performer_events_df(
@@ -245,10 +201,7 @@ class SeatgeekData:
         :param engine:
         :return:
         """
-        # self.events.to_sql('event', engine, if_exists='replace', index=False)
-        # self.performers_df.to_sql('performer', engine, if_exists='replace', index=False)
         self.stats_df.to_sql("stat", engine, if_exists="append", index=False)
-        # select event_id from performers_events_venue db table,
 
         try:
             stored_event_ids = pd.read_sql(

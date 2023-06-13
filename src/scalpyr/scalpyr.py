@@ -7,18 +7,18 @@ from bs4 import BeautifulSoup
 SgRespType = typing.Dict[str, typing.Dict[str, typing.List[typing.Dict]]]
 
 
-class Scalpyr(object):
+class Scalpyr:
     def __init__(self, dev_key=None):
         self.base_url = "http://api.seatgeek.com/2/"
         self.dev_key = dev_key
 
-    def get_events(self, req_args=None, event_id=None) -> SgRespType:
+    def get_events(self, req_args=None, event_id=None):
         return self._send_request("events", req_args, event_id)
 
-    def get_performers(self, req_args=None, perf_id=None) -> SgRespType:
+    def get_performers(self, req_args: typing.Dict = None, perf_id=None):
         return self._send_request("performers", req_args, perf_id)
 
-    def get_venues(self, req_args=None, venue_id=None) -> SgRespType:
+    def get_venues(self, req_args=None, venue_id=None):
         return self._send_request("venues", req_args, venue_id)
 
     def get_taxonomies(self):
@@ -138,17 +138,18 @@ class Scalpyr(object):
 
     def _send_request(self, req_type=None, req_args=None, req_id=None):
         """Send a request to the SeatGeek API using requests"""
-        request_string = self.base_url + "{0}/".format(req_type)
+        request_string = f'{self.base_url}{req_type}/'
         if req_id:
-            request_string += f"{req_id}"
+            request_string += f"{req_id}&"
         elif req_args:
             request_string += "?"
             for k, v in req_args.items():
                 request_string += f"{k}={v}&"
-            if self.dev_key is not None:
-                request_string += f"client_id={self.dev_key}"
-        elif req_type == "taxonomies":
-            request_string += "taxnonomies"
+        request_string += f"client_id={self.dev_key}"
+
         response = requests.get(request_string)
         dict_result = json.loads(response.text)
         return dict_result
+
+
+

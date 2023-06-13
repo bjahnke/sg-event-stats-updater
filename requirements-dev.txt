@@ -1,3 +1,4 @@
 invoke
 cookiecutter
 kaggle
+matplotlib
