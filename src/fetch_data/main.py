@@ -17,13 +17,6 @@ app = Flask(__name__)
 
 @app.route('/', methods=['POST'])
 def handle_request():
-    if request.method != 'POST':
-        try:
-            request_data = TrackEvents(**request.get_json())
-            event_ids = request_data.event_ids
-        except pydantic.ValidationError as e:
-            return str(e), 400
-
     client = Scalpyr(env.SEATGEEK_CLIENT_ID)
     seatgeek_data = SeatgeekData.from_api(client)
     engine = create_engine(env.PLANETSCALE_URL, echo=True)
