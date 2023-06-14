@@ -238,15 +238,14 @@ class SeatgeekData:
             stored_performer_event_venue = pd.read_sql_table("performer_event_venue", engine)
         except Exception as e:
             # then push the result to the db
-            self.performer_events_venue.to_sql(
-                "performer_event_venue", engine, if_exists="replace", index=False
-            )
+            new_table = self.performer_events_venue
         else:
             # select rows in performer_events_df where event_id is not in db list of event_ids
-            new_performer_events_df = pd.concat(
+            new_table = pd.concat(
                 [stored_performer_event_venue, self.performer_events_venue]
-            ).drop_duplicates()
-            # then push the result to the db
-            new_performer_events_df.to_sql(
-                "performer_event_venue", engine, if_exists="append", index=False
             )
+            new_table = new_table.drop_duplicates()
+            # then push the result to the db
+        new_table.to_sql(
+            "performer_event_venue", engine, if_exists="replace", index=False
+        )
