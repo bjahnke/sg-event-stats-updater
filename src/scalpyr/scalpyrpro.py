@@ -58,6 +58,6 @@ class ScalpyrPro(Scalpyr):
         """
         return self.get_events({
             'performers.id': ','.join(performers.id.astype(str)),
-            'per_page': performers.num_upcoming_events.sum(),
+            'per_page': performers.num_upcoming_events.sum() * 2,
             'type': 'concert'
         })

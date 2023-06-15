@@ -47,3 +47,15 @@ def dockerrun(c):
     """
     print("Running docker image...")
     subprocess.run(["docker", "run", "--env-file", ".env", get_env_var("IMAGE_NAME")])
+
+
+@task
+def pytest(c):
+    """
+    run pytest
+    :param c:
+    :return:
+    """
+    print("Running pytest...")
+    # python -m pytest test/
+    subprocess.run(["py", "-m", "pytest", "test/"])

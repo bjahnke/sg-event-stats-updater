@@ -1,9 +1,13 @@
 import typing
+from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from src.scalpyr import Scalpyr, ScalpyrPro
+from pydantic import BaseModel, validator
+
+from src.scalpyr import ScalpyrPro
+import src.fetch_data.schema as schema
 
 
 def get_performer_events(
@@ -155,14 +159,18 @@ class SeatgeekData:
     """
 
     def __init__(
-        self, events: pd.DataFrame, performers_df: pd.DataFrame
+            self,
+            events: pd.DataFrame,
+            performers: pd.DataFrame,
+            stats: pd.DataFrame,
+            performer_event_venue: pd.DataFrame,
+            venue: pd.DataFrame
     ):
-        print(f"building seatgeek data {datetime.now()}")
-        self.events = events
-        self.performers_df = performers_df
-        self.stats_df = build_stats_df(events)
-        self.events["venue_id"] = get_event_venue_ids(self.events)
-        self.performer_events_venue = build_performer_events_df(events)
+        self.event = events
+        self.performer = performers
+        self.stat = stats
+        self.performer_event_venue = performer_event_venue
+        self.venue = venue
 
     @classmethod
     def from_api(cls, client: ScalpyrPro):
@@ -177,7 +185,7 @@ class SeatgeekData:
             {'type': 'band', 'per_page': 100, 'has_upcoming_events': 'true'}
         )
         events = client.get_events_by_performers(performers)
-        return cls(events, performers)
+        return cls._build_tables(events, performers)
 
     @classmethod
     def from_db(cls, engine, client: ScalpyrPro):
@@ -189,6 +197,7 @@ class SeatgeekData:
         """
         print(f"getting events from database {datetime.now()}")
         performer_event_venue = pd.read_sql_table("performer_event_venue", engine)
+        stat = pd.read_sql_table("stat", engine)
         # get performers from api by unique performer_id in performer_event_venue table
         performer_ids = performer_event_venue.performer_id.astype(str).unique()
         performers = client.get_performers(
@@ -210,19 +219,33 @@ class SeatgeekData:
             )
             events_list.append(evnts)
         events = pd.concat(events_list)
-        return cls(events, performers)
+        local_data = cls._build_tables(events, performers)
+        return cls(local_data.event, local_data.performer, stat, performer_event_venue, local_data.venue)
+
+    @classmethod
+    def _build_tables(
+        cls, events: pd.DataFrame, performers_df: pd.DataFrame
+    ):
+        print(f"building seatgeek data {datetime.now()}")
+        events = events
+        performers_df = performers_df
+        stats_df = build_stats_df(events)
+        events["venue_id"] = get_event_venue_ids(events)
+        performer_events_venue = build_performer_events_df(events)
+        venue = build_df_from_series_of_dicts(events["venue"])
+        return cls(events, performers_df, stats_df, performer_events_venue, venue)
 
     def get_performer_events(self, performer_name: str) -> pd.Series:
         return get_performer_events(
-            performer_name, self.performers_df, self.performer_events_venue
+            performer_name, self.performer, self.performer_event_venue
         )
 
     def get_performer_stats(self, performer_name: str) -> pd.DataFrame:
-        return get_performer_stats_df(performer_name, self.performers_df, self.events, self.performer_events_venue)
+        return get_performer_stats_df(performer_name, self.performer, self.event, self.performer_event_venue)
 
     def get_performer_events_df(self, performer_name: str) -> pd.DataFrame:
         return get_performer_events_df(
-            performer_name, self.performers_df, self.events, self.performer_events_venue
+            performer_name, self.performer, self.event, self.performer_event_venue
         )
 
     # function that pushes all tables to a database using sqlalchemy via pandas
@@ -232,20 +255,55 @@ class SeatgeekData:
         :param engine:
         :return:
         """
-        self.stats_df.to_sql("stat", engine, if_exists="append", index=False)
+        self.stat.to_sql("stat", engine, if_exists="append", index=False)
 
         try:
             stored_performer_event_venue = pd.read_sql_table("performer_event_venue", engine)
         except Exception as e:
             # then push the result to the db
-            new_table = self.performer_events_venue
+            new_table = self.performer_event_venue
         else:
             # select rows in performer_events_df where event_id is not in db list of event_ids
             new_table = pd.concat(
-                [stored_performer_event_venue, self.performer_events_venue]
+                [stored_performer_event_venue, self.performer_event_venue]
             )
             new_table = new_table.drop_duplicates()
             # then push the result to the db
         new_table.to_sql(
             "performer_event_venue", engine, if_exists="replace", index=False
         )
+
+    def get_ids_by_slug(self, query: schema.SlugReq) -> pd.DataFrame:
+        """
+        Returns a dataframe of performer_event_venue for a given slug
+        :param query:
+        :return:
+        """
+        table = getattr(self, query.slug.name)
+        # select id from table where slug = query.slug.value, should be unique
+        id_ = table.loc[table['slug'] == query.slug.value, "id"].values[0]
+        return self.get_pev_by_id(schema.ForeignKey(fk={f"{query.slug.name}_id": id_}))
+
+    def get_pev_by_id(self, query: schema.ForeignKey) -> pd.DataFrame:
+        """
+        Returns a dataframe of performer_event_venue for a given id
+        :param query:
+        :return:
+        """
+        # select rows in self.performer_event_venue where query.id.key = query.id.value
+        return self.performer_event_venue.loc[
+            self.performer_event_venue[query.fk.name] == query.fk.value
+            ]
+
+    def _get_stats(self, event_ids: pd.Series) -> pd.DataFrame:
+        return self.stat.loc[self.stat.event_id.isin(event_ids)]
+
+    def get_stats_by_slug(self, query: schema.SlugReq) -> pd.DataFrame:
+        event_ids = self.get_ids_by_slug(query).event_id
+        return self._get_stats(event_ids)
+
+    def get_stats_by_id(self, query: schema.ForeignKey) -> pd.DataFrame:
+        event_ids = self.get_pev_by_id(query).event_id
+        return self._get_stats(event_ids)
+
+
