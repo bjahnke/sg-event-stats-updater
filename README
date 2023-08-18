@@ -1,1 +1,23 @@
+1. Install Project Dependencies:
+  -  Set working path to local repo
+  -  `pip install invoke`
+  -  `inv install`
+  -  `inv installdev`
 
+2. Environment Variables Setup:
+Users must create a `.env` in the root directory of the project. This file will contain your personal API keys. The program requires this data to access Seatgeak, database data, and (optionally) docker and google cloud run. Docker and GCR credentials are only needed if you wish to build a docker image and/or deploy an image to GCR. `.env` should never pushed to github, even if the repo is private. 
+
+Required Environmental Variables:
+
+SEATGEEK_API_SECRET=Your SeatGeek API Secret
+SEATGEEK_CLIENT_ID=Your SeatGeek API Client ID
+PLANETSCALE_URL=mysql+mysqlconnector://USERNAME:PASSWORD@aws.connect.psdb.cloud:3306/event-data (replace USERNAME, PASSWORD with your credentials for DB access)
+
+Optional Variables:
+IMAGE_NAME=image name for docker and gcr
+DOCKER_TOKEN=your docker token
+DOCKER_USERNAME=your docker username
+GCR_PROJECT_ID=your gcr project id to push image to
+
+Usage:
+`src/fetch_data/notebook.ipynb` is a jupyter notebook file used to run scripts and visualize data. 
