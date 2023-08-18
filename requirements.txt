@@ -7,4 +7,5 @@ mysql-connector-python
 flask
 pydantic
 numpy
+pymongo
 git+https://github.com/bjahnke/utility-invoke-tasks.git

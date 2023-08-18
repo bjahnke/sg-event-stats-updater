@@ -5,6 +5,8 @@ from sqlalchemy import create_engine
 import pandas as pd
 from pprint import pprint
 
+from src.scalpyr.scalpyrpro import ApiException
+
 
 def get_performer_id(slug):
     """
@@ -72,12 +74,8 @@ def plot_all_stats(performer_stats, performer_events):
         ref_data = performer_events.loc[performer_events.event_id == event_id].iloc[0]
         venue_id = ref_data.venue_id
         venue_name = client.get_venues({'id': venue_id}).name.values[0]
-        try:
-            info = client.get_events({'id': event_id}).iloc[0]
-            slug = info.performers[0]['slug']
-            title = f'{slug}, {venue_name}, {info.datetime_utc}'
-        except AttributeError:
-            title = f'Event {event_id} (old show?)'
+        performer_slug = client.get_performers({'id': ref_data.performer_id}).slug.values[0]
+        title = f'{performer_slug}, {venue_name}, {ref_data.datetime_utc}'
         data = performer_stats.loc[performer_stats.event_id == event_id].copy()
         plot_stats(data, title)
 
@@ -111,6 +109,36 @@ class DataPlotter(SeatgeekData):
         ids = self.get_ids_by_slug(slug)
         plot_all_stats(stats, ids)
         return ids
+
+    def stats_info_view(self, slug):
+        """
+        gets the stats for a given slug and joins the stats with the performer_event_venue table
+        :param slug:
+        :return:
+        """
+        slug = SlugReq(slug={'performer': slug})
+        stats = self.get_stats_by_slug(slug)
+        # merge stats with performer_event_venue on event_id
+        stats_joined = stats.merge(self.get_ids_by_slug(slug), on='event_id')
+        client = ScalpyrPro(env.SEATGEEK_CLIENT_ID)
+        # get venue name from scalpyr by concating all unique venue_ids into comma separated string
+        venues = client.get_by_id(
+            'venues', stats_joined.venue_id.unique()
+        )[['id', 'slug']].rename(columns={'slug': 'venue_slug'})
+        # merge stats with venues on left on venue_id right on id, drop id column
+        stats_joined = stats_joined.merge(venues, left_on='venue_id', right_on='id').drop(columns='id')
+        # get performer name from scalpyr by concating all unique performer_ids into comma separated string
+        performers = client.get_by_id(
+            'performers', stats_joined.performer_id.unique()
+        )[['id', 'slug']].rename(columns={'slug': 'performer_slug'})
+        # merge stats with performers on left on performer_id right on id, drop id column
+        stats_joined = stats_joined.merge(performers, left_on='performer_id', right_on='id').drop(columns='id')
+        # create a new column that is a concatenation of performer_slug, venue_slug, and datetime_utc
+        stats_joined['title'] = stats_joined.apply(
+            lambda x: f'{x.performer_slug},{x.venue_slug},{x.datetime_utc}', axis=1)
+        # drop all columns except utc_read_time, average_price, event_id, title
+        # stats_joined = stats_joined[['utc_read_time', 'average_price', 'event_id', 'title']]
+        return stats_joined
 
 
 if __name__ == '__main__':

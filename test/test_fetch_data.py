@@ -1,8 +1,12 @@
+import pymongo.collection
 import pytest
 import pandas as pd
+from pymongo import MongoClient
+
 import src.fetch_data as fetch_data
 import env
 from src.fetch_data import ForeignKey, SlugReq
+import src.schemas
 
 
 # fixture the creates mock data for SeatgeekData
@@ -157,3 +161,49 @@ def test_get_stats_by_slug_2(seatgeek_data):
             seatgeek_data.performer_event_venue['performer_id'] == 1, 'event_id'
         ]
     )
+
+
+def test_from_watchlist(seatgeek_data):
+    """
+    test that from_watchlist returns a SeatgeekData object
+    :return:
+    """
+    client, _ = seatgeek_data
+    watchlist = src.schemas.WatchListResponse(
+        _id=pymongo.collection.ObjectId(),
+        username='test',
+        venue_id=['100'],
+        performer_id=['2351'],
+        event_id=['5870656'],
+    )
+    seatgeek_data = fetch_data.SeatgeekData.from_watchlist(
+        client,
+        venue_id=watchlist.venue_id,
+        performer_id=watchlist.performer_id,
+        event_id=watchlist.event_id,
+    )
+    assert isinstance(seatgeek_data, fetch_data.SeatgeekData)
+    # assert that performer_event_venue contains:
+    # - watchlist.venue_id in venue_id column
+    # - watchlist.performer_id in performer_id column
+    # - watchlist.event_id in event_id column
+    assert int(watchlist.venue_id[0]) in seatgeek_data.performer_event_venue.venue_id.values
+    assert int(watchlist.performer_id[0]) in seatgeek_data.performer_event_venue.performer_id.values
+    assert int(watchlist.event_id[0]) in seatgeek_data.performer_event_venue.event_id.values
+
+
+def test_from_watchlist_2(seatgeek_data):
+    """test from watchlist with mongodb data"""
+    client, _ = seatgeek_data
+    mongo_client = MongoClient(env.MONGO_URL)
+    db = mongo_client['event-tracking']
+    collection = db['watchlist']
+    latest_entry = collection.find_one({"username": "bjahnke71"}, sort=[("_id", -1)])
+    watchlist = src.schemas.WatchListResponse(**latest_entry)
+    seatgeek_data = fetch_data.SeatgeekData.from_watchlist(
+        client,
+        venue_id=watchlist.venue_id,
+        performer_id=watchlist.performer_id,
+        event_id=watchlist.event_id,
+    )
+    print('done')

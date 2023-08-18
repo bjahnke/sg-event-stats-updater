@@ -157,7 +157,6 @@ class SeatgeekData:
     # class which, given event data from seatgeek, builds dataframes using
     # the table builder functions above
     """
-
     def __init__(
             self,
             events: pd.DataFrame,
@@ -171,6 +170,47 @@ class SeatgeekData:
         self.stat = stats
         self.performer_event_venue = performer_event_venue
         self.venue = venue
+
+    @classmethod
+    def from_events(cls, events: pd.DataFrame):
+        """
+        Returns a SeatgeekData object from events
+        :param events:
+        :return:
+        """
+        performers = build_df_from_series_of_dicts(events["performers"].explode())
+        return cls._build_tables(events, performers)
+
+    @classmethod
+    def from_watchlist(
+            cls,
+            client: ScalpyrPro,
+            venue_id: typing.Union[typing.List[str], None],
+            performer_id: typing.Union[typing.List[str], None],
+            event_id: typing.Union[typing.List[str], None],
+    ):
+        """
+        Returns a SeatgeekData object from a watchlist
+        :param client:
+        :param venue_id:
+        :param performer_id:
+        :param event_id:
+        :return:
+        """
+        events = []
+        if venue_id:
+            events.append(client.get_events_by('venue', venue_id))
+        if performer_id:
+            events.append(client.get_events_by('performers', performer_id))
+        if event_id:
+            events.append(client.get_by_id('events', event_id))
+        # concat events, keep first instance of each event id
+        events = pd.concat(events).drop_duplicates(subset=['id'])
+        # get performers from events
+        performers = build_df_from_series_of_dicts(events["performers"].explode())
+        performers = performers.drop_duplicates(subset=['id'])
+
+        return cls._build_tables(events, performers)
 
     @classmethod
     def from_api(cls, client: ScalpyrPro):
@@ -188,16 +228,20 @@ class SeatgeekData:
         return cls._build_tables(events, performers)
 
     @classmethod
-    def from_db(cls, engine, client: ScalpyrPro):
+    def from_db(cls, engine, client: ScalpyrPro, stats_query: str = ""):
         """
         Returns a SeatgeekData object from a database
+        :param stats_query:
         :param client:
         :param engine:
         :return:
         """
         print(f"getting events from database {datetime.now()}")
         performer_event_venue = pd.read_sql_table("performer_event_venue", engine)
-        stat = pd.read_sql_table("stat", engine)
+        if stats_query:
+            stat = pd.read_sql(stats_query, engine)
+        else:
+            stat = pd.read_sql_table("stat", engine)
         # get performers from api by unique performer_id in performer_event_venue table
         performer_ids = performer_event_venue.performer_id.astype(str).unique()
         performers = client.get_performers(
@@ -232,7 +276,7 @@ class SeatgeekData:
         stats_df = build_stats_df(events)
         events["venue_id"] = get_event_venue_ids(events)
         performer_events_venue = build_performer_events_df(events)
-        venue = build_df_from_series_of_dicts(events["venue"])
+        venue = build_df_from_series_of_dicts(events["venue"]).drop_duplicates('id')
         return cls(events, performers_df, stats_df, performer_events_venue, venue)
 
     def get_performer_events(self, performer_name: str) -> pd.Series:
@@ -252,6 +296,8 @@ class SeatgeekData:
     def push_to_db(self, engine):
         """
         pushes all data to a database using sqlalchemy via pandas
+        new stat rows are appended to the stat table
+        new performer_event_venue rows are appended to the performer_event_venue table
         :param engine:
         :return:
         """
@@ -259,6 +305,7 @@ class SeatgeekData:
 
         try:
             stored_performer_event_venue = pd.read_sql_table("performer_event_venue", engine)
+            # select
         except Exception as e:
             # then push the result to the db
             new_table = self.performer_event_venue
