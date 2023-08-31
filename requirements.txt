@@ -8,4 +8,5 @@ flask
 pydantic
 numpy
 pymongo
+certifi
 git+https://github.com/bjahnke/utility-invoke-tasks.git

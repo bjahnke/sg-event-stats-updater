@@ -6,6 +6,9 @@ from flask import Flask
 import pydantic
 from pymongo import MongoClient
 from src.schemas.models import WatchListResponse
+import certifi
+
+ca = certifi.where()
 
 
 # pydantic class that represents the incoming request body:
@@ -20,7 +23,7 @@ app = Flask(__name__)
 @app.route('/', methods=['POST'])
 def handle_request():
     client = ScalpyrPro(env.SEATGEEK_CLIENT_ID)
-    mongo_client = MongoClient(env.MONGO_URL)
+    mongo_client = MongoClient(env.MONGO_URL, tlsCAFile=ca)
     db = mongo_client['event-tracking']
     collection = db['watchlist']
     latest_entry = collection.find_one({"username": "bjahnke71"}, sort=[("_id", -1)])

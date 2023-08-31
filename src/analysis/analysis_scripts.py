@@ -123,13 +123,13 @@ class DataPlotter(SeatgeekData):
         client = ScalpyrPro(env.SEATGEEK_CLIENT_ID)
         # get venue name from scalpyr by concating all unique venue_ids into comma separated string
         venues = client.get_by_id(
-            'venues', stats_joined.venue_id.unique()
+            'venues', stats_joined.venue_id.unique().astype(str)
         )[['id', 'slug']].rename(columns={'slug': 'venue_slug'})
         # merge stats with venues on left on venue_id right on id, drop id column
         stats_joined = stats_joined.merge(venues, left_on='venue_id', right_on='id').drop(columns='id')
         # get performer name from scalpyr by concating all unique performer_ids into comma separated string
         performers = client.get_by_id(
-            'performers', stats_joined.performer_id.unique()
+            'performers', stats_joined.performer_id.unique().astype(str)
         )[['id', 'slug']].rename(columns={'slug': 'performer_slug'})
         # merge stats with performers on left on performer_id right on id, drop id column
         stats_joined = stats_joined.merge(performers, left_on='performer_id', right_on='id').drop(columns='id')
