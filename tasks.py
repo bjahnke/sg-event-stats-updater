@@ -81,14 +81,19 @@ def gcrdeploy(c):
         '--image',
         docker_tag,
         '--region',
-        'us-east1',
+        'us-east4',
         '--no-allow-unauthenticated',
         '--project',
         get_env_var('GCR_PROJECT_ID'),
         '--env-vars-file',
         './env.yaml',
         '--memory',
-        '2Gi'
+        '2Gi',
+        '--vpc-connector',
+        'static-ip-connector',
+        '--vpc-egress',
+        'all-traffic',
+
     ]
     print(' '.join(command))
     subprocess.run(command, check=True, shell=True)

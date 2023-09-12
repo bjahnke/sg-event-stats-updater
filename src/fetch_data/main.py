@@ -27,13 +27,12 @@ def handle_request():
     db = mongo_client['event-tracking']
     collection = db['watchlist']
     latest_entry = collection.find_one({"username": "bjahnke71"}, sort=[("_id", -1)])
-    watchlist = WatchListResponse(**latest_entry)
-    seatgeek_data = SeatgeekData.from_watchlist(
-        client,
-        venue_id=watchlist.venue_id,
-        performer_id=watchlist.performer_id,
-        event_id=watchlist.event_id
-    )
+    watchlist = {
+        'event_id': latest_entry.get('event_id'),
+        'venue_id': latest_entry.get('venue_id'),
+        'performer_id': latest_entry.get('performer_id')
+    }
+    seatgeek_data = SeatgeekData.from_watchlist(client, **watchlist)
     engine = create_engine(env.PLANETSCALE_URL, echo=True)
     seatgeek_data.push_to_db(engine)
     return 'Updated database'
