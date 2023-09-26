@@ -174,7 +174,6 @@ def test_from_watchlist(seatgeek_data):
         username='test',
         venue_id=['100'],
         performer_id=['2351'],
-        event_id=['5870656'],
     )
     seatgeek_data = fetch_data.SeatgeekData.from_watchlist(
         client,
@@ -189,7 +188,7 @@ def test_from_watchlist(seatgeek_data):
     # - watchlist.event_id in event_id column
     assert int(watchlist.venue_id[0]) in seatgeek_data.performer_event_venue.venue_id.values
     assert int(watchlist.performer_id[0]) in seatgeek_data.performer_event_venue.performer_id.values
-    assert int(watchlist.event_id[0]) in seatgeek_data.performer_event_venue.event_id.values
+    assert watchlist.event_id is None
 
 
 def test_from_watchlist_2(seatgeek_data):

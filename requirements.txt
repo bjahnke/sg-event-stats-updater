@@ -10,3 +10,4 @@ numpy
 pymongo
 certifi
 git+https://github.com/bjahnke/utility-invoke-tasks.git
+git+https://github.com/bjahnke/seatgeek_pandas_wrapper.git
