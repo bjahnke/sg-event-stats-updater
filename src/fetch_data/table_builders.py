@@ -202,7 +202,7 @@ class SeatgeekData:
         events = []
         if venue_id:
             # submit 50 venue ids at a time
-            venue_id = np.array_split(venue_id, len(venue_id) // 2)
+            venue_id = np.array_split(venue_id, len(venue_id) // 1)
             bad_list = []
             for i in venue_id:
                 try:
