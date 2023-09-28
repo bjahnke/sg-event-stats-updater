@@ -7,6 +7,8 @@ import pandas as pd
 from pydantic import BaseModel, validator
 
 from src.scalpyr import ScalpyrPro
+from src.scalpyr.scalpyrpro import ApiException
+
 import src.fetch_data.schema as schema
 
 
@@ -199,7 +201,15 @@ class SeatgeekData:
         """
         events = []
         if venue_id:
-            events.append(client.get_events_by('venue', venue_id))
+            # submit 50 venue ids at a time
+            venue_id = np.array_split(venue_id, len(venue_id) // 2)
+            bad_list = []
+            for i in venue_id:
+                try:
+                    events.append(client.get_events_by('venue', list(i)))
+                except ApiException:
+                    bad_list.append(i[0])
+                    continue
         if performer_id:
             events.append(client.get_events_by('performers', performer_id))
         if event_id:
