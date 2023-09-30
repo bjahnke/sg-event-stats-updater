@@ -187,9 +187,10 @@ class SeatgeekData:
     def from_watchlist(
             cls,
             client: ScalpyrPro,
-            venue_id: typing.Union[typing.List[str], None],
-            performer_id: typing.Union[typing.List[str], None],
-            event_id: typing.Union[typing.List[str], None],
+            venue_id: typing.Union[typing.List[str], None] = None,
+            performer_id: typing.Union[typing.List[str], None] = None,
+            event_id: typing.Union[typing.List[str], None] = None,
+            **_
     ):
         """
         Returns a SeatgeekData object from a watchlist
@@ -200,20 +201,15 @@ class SeatgeekData:
         :return:
         """
         events = []
+        event_type = 'concert'
         if venue_id:
             # submit 50 venue ids at a time
-            venue_id = np.array_split(venue_id, len(venue_id) // 1)
-            bad_list = []
-            for i in venue_id:
-                try:
-                    events.append(client.get_events_by('venue', list(i)))
-                except ApiException:
-                    bad_list.append(i[0])
-                    continue
+            v_resp = client.get_events_by('venue', venue_id, event_type=event_type)
+            events.append(v_resp['events'])
         if performer_id:
-            events.append(client.get_events_by('performers', performer_id))
+            events.append(client.get_events_by('performers', performer_id, event_type=event_type)['events'])
         if event_id:
-            events.append(client.get_by_id('events', event_id))
+            events.append(client.get_events_by('events', event_id, event_type=event_type)['events'])
         # concat events, keep first instance of each event id
         events = pd.concat(events).drop_duplicates(subset=['id'])
         # get performers from events

@@ -7,6 +7,7 @@ import pydantic
 from pymongo import MongoClient
 from src.schemas.models import WatchListResponse
 import certifi
+import src.watchlist
 
 ca = certifi.where()
 
@@ -23,17 +24,10 @@ app = Flask(__name__)
 @app.route('/', methods=['POST'])
 def handle_request():
     client = ScalpyrPro(env.SEATGEEK_CLIENT_ID)
-    mongo_client = MongoClient(env.MONGO_URL, tlsCAFile=ca)
-    db = mongo_client['event-tracking']
-    collection = db['watchlist']
-    latest_entry = collection.find_one({"username": "bjahnke71"}, sort=[("_id", -1)])
-    watchlist = {
-        'event_id': latest_entry.get('event_id'),
-        'venue_id': latest_entry.get('venue_id'),
-        'performer_id': latest_entry.get('performer_id')
-    }
+    watchlist_client = src.watchlist.MongoWatchlistClient(env.WATCHLIST_API_KEY)
+    watchlist = watchlist_client.get_latest('event-tracking')
     seatgeek_data = SeatgeekData.from_watchlist(client, **watchlist)
-    engine = create_engine(env.PLANETSCALE_URL, echo=True)
+    engine = create_engine(env.PLANETSCALE_URL)
     seatgeek_data.push_to_db(engine)
     return 'Updated database'
 
