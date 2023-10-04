@@ -307,7 +307,7 @@ class SeatgeekData:
         :param engine:
         :return:
         """
-        self.stat.to_sql("stat", engine, if_exists="append", index=False)
+        self.stat.to_sql("stat", engine, if_exists="append", index=False, chunksize=10000)
 
         try:
             stored_performer_event_venue = pd.read_sql_table("performer_event_venue", engine)
@@ -323,7 +323,7 @@ class SeatgeekData:
             new_table = new_table.drop_duplicates()
             # then push the result to the db
         new_table.to_sql(
-            "performer_event_venue", engine, if_exists="replace", index=False
+            "performer_event_venue", engine, if_exists="replace", index=False, chunksize=10000
         )
 
     def get_ids_by_slug(self, query: schema.SlugReq) -> pd.DataFrame:

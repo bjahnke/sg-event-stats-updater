@@ -53,12 +53,7 @@ def gcrdeploy(c):
         '--env-vars-file',
         './env.yaml',
         '--memory',
-        '2Gi',
-        '--vpc-connector',
-        'static-ip-connector',
-        '--vpc-egress',
-        'all-traffic',
-
+        '2Gi'
     ]
     print(' '.join(command))
     subprocess.run(command, check=True, shell=True)
